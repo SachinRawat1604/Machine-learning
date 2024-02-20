@@ -1,5 +1,5 @@
 import numpy as np
-#from numpy.random import seed
+from numpy.random import seed
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -263,4 +263,176 @@ ax[1].set_xlabel("Epochs")
 ax[1].set_ylabel("log (sum_squared-error)")
 ax[1].set_label("Adaline-learning rate 0.01")
 
+
+# Feature standardization to improve algorithm performance:---->
+
+# Feature standardization can improve the performance of most machine learning algorithm.
+# let's standardize our feature set to measure the performance improvement.
+
+X_std = np.copy(X)
+X_std[:, 0] = (X_std[:,0] - X_std[:,0].mean()) / X_std[:,0].std()
+X_std[:, 1] = (X_std[:,1] - X_std[:,1].mean()) / X_std[:,1].std()
+
+#now we'll train the adaline again on the standardized feature and look for performance improvements.
+
+n_iter = 15;
+eta = 0.01;
+ada = AdalineGD(n_iter = n_iter, eta = eta)
+
+# Train the model.
+ada.fit(X_std, y)
+
+# plot the decision regions.
+classifier = ada
+plot_decision_regions(X_std, y, classifier = classifier)
+plt.title("Adaline -Gradict Descent")
+plt.xlabel("Sepal length [standardized]")
+plt.ylabel("petal length [standardized]")
 plt.show()
+
+epochs = range(1, len(ada.cost_) +1)
+misclassifications = ada.cost_
+marker = "o"
+plt.plot(epochs, misclassifications, marker=marker)
+plt.xlabel("Epochs")
+plt.ylabel("sum - squared - error")
+
+
+# Adaline with stochastic gradient descent:---->
+
+class AdalineSGD(object):
+    """
+    ADaptive linear Neuron Classifier.
+    
+    Parameter
+    -----------
+    eta = float 
+        Learning rate b/w 0.0 and 1.0
+    n_iter = int
+            Passes (epochs) over training set
+            
+    Attributes
+    ------------
+    w_ : id-array ( Weight after fitting)
+    errors_ : list ( no of classifications in every epoch)
+    shuffle : bool (default : True) (Shuffle training data every epochs
+                                    if True to prevent cycles)
+    random_states : int (default : None) ( Set random state for shuffling
+                                          and initalizing weights.)
+    """
+    def __init__(self, eta=0.01, n_iter=50, shuffle=True, 
+                 random_states=None):
+        self.eta = eta
+        self.n_iter = n_iter
+        self.w_initialized = False
+        self.shuffle = shuffle
+        
+        # random state allows us to make results re-producible from run to run.
+        
+        if random_states:
+            seed(random_states)
+    
+    def fit(self, X, y):
+        """
+            Fit training data
+
+        Parameters
+        ----------
+        X : {array-like}, shape=[n_sample, n_feature]
+        y : {array-like}, shape=[n_sample]
+
+        """
+        self._initialize_weight(X.shape[1])
+        self.cost_ = []
+        
+        # we now update the weights after each training sample.
+        for i in range(self.n_iter):
+            if self.shuffle:
+                X, y = self._shuffle(X,y)
+            cost = []
+            for xi, target in zip(X, y):
+                cost.append(self._update_weights(xi, target))
+                avg_cost = sum(cost)/len(y)
+                self.cost_.append(avg_cost)
+            return self
+        
+    def partial_fit (self, X, y):
+        """ fit training data without re-initializing the weight"""
+        # this new method allows us to use the adaline for online
+        # learning since weight are not re-initialized.
+        
+        if not self.w_initialized:
+            self._initialize_weight(X.shape[1])
+        if y.ravel().shape[0]>1:
+            for xi,target in zip(X,y):
+                self._update_weights(xi, target)
+        else:
+            self._update_weight(X,y)
+        return self
+    
+    def _shuffle(self, X, y):
+        #shuffle training data.
+        # use this method to shuffle the training
+        # data before each epochs
+        r = np.random.permutation(len(y))
+        return X[r], y[r]
+    
+    def _initialize_weight(self, m):
+        # initialize weights to zeros.
+        self.w_ = np.zeros(1 + m)
+        self.w_initialized = True
+        
+    def _update_weights(self, xi, target):
+        # Apply Adaline learing rule to  update the weight.
+        
+        output = self.net_input(xi)
+        errors = (target - output)
+        self.w_[1:] += self.eta * xi.dot(errors)
+        self.w_[0] += self.eta * errors
+        cost = 0.5 * errors ** 2
+        return cost
+    
+    def net_input(self,X):
+        #Calculate net input
+        return np.dot(X, self.w_[1:]) + self.w_[0]
+    
+    def activation (self, X):
+        #computer linear activation.
+        return self.net_input(X)
+    
+    def predict(self , X):
+        #Return class label after unit step.
+        return np.where(self.activation(X)>= 0.0, 1, -1)
+    
+    
+# Train the Adaline and Plot the results:------>
+
+# Instatiate the model.
+n_iter = 15
+eta = 0.01
+random_states = 1
+ada = AdalineSGD(n_iter = n_iter, eta = eta, random_states = random_states)
+
+#fit the model.
+ada.fit(X_std, y)
+
+#Plot decision regions.
+classifier = ada
+plot_decision_regions(X_std, y, classifier = classifier)
+
+plt.title("Adaline - stochastic.Gradient Descent")
+plt.xlabel("Sepal length [standardized]")
+plt.ylabel("petal length [standardized]")
+location = "upper left"
+plt.legend(loc = location)
+plt.show()
+
+# Plot the errors
+epochs = range(1, len(ada.cost_) + 1)
+misclassifications = ada.cost_
+marker = "o"
+plt.plot(epochs, misclassifications, marker = marker)
+plt.xlabel("Epochs")
+plt.ylabel("Average cost")
+plt.show()
+
